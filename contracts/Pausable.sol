@@ -16,17 +16,15 @@ contract Pausable {
     /**
     * @dev Throws if contract is not paused.
     */
-    modifier requireIsPaused {
-        require(!isPaused, "Action requires resumed state");
-        _;
+    modifier paused {
+        require(!isPaused, "Action requires resumed state"); _;
     }
 
     /**
     * @dev Throws if contract is paused.
     */
-    modifier requireIsResumed {
-        require(isPaused, "Action requires paused state");
-        _;
+    modifier resumed {
+        require(isPaused, "Action requires paused state"); _;
     }
 
     constructor() public {
@@ -36,21 +34,22 @@ contract Pausable {
     /**
     * @dev Allows the contract to be paused.
     */
-    function pause() public requireIsResumed returns(bool success)  {
+    function pause() public resumed {
         isPaused = true;
         emit LogOnPaused(msg.sender, isPaused);
-        return true;
     }
 
     /**
     * @dev Allows the contract to be resumed.
     */
-    function resume() public requireIsPaused returns(bool success)  {
+    function resume() public paused {
         isPaused = false;
         emit LogOnResumed(msg.sender, isPaused);
-        return true;
     }
 
+    /**
+    * @dev Returns the current state of the constract
+    */
     function paused() public view returns (bool) {
         return isPaused;
     }

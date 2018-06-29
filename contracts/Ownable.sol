@@ -20,21 +20,22 @@ contract Ownable {
     * @dev Throws if called by any account other than the owner.
     */
     modifier onlyOwner {
-        require(msg.sender == owner, "Only the owner can do this");
-        _;
+        require(msg.sender == owner, "Only the owner can do this"); _;
     }
 
     /**
     * @dev Allows the current owner to transfer control of the contract to a newOwner.
     * @param newOwner The address to transfer ownership to.
     */
-    function transferOwnership(address newOwner) public onlyOwner returns(bool success) {
+    function transferOwnership(address newOwner) public onlyOwner {
         require(newOwner != address(0));
         owner = newOwner;
         emit LogOnNewOwner(owner);
-        return true;
     }
 
+    /**
+    * @dev Returns the address of the current owner.
+    */
     function getOwner() public view returns (address) {
         return owner;
     }
