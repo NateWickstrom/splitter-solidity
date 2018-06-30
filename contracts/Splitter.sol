@@ -1,65 +1,82 @@
 pragma solidity ^0.4.24;
 
-import "./OwnedPausable.sol";
+import "./Ownable.sol";
 
 /**
  * @title Splitter
  *
  * @dev The Splitter contract has the ability to split a transaction, sending
  * half to a primary and half to a secondary recipient. Only the owner of this
- * contract can preform split sends and has this ability to disable contract 
- * functionality.  See the Oaned and Pausable contracts for more details.
+ * contract can preform split send. See the Owned contract for more details.
  */
-contract Splitter is OwnedPausable {
+contract Splitter is Ownable {
 
-  address public primaryRecipient;
-  address public secondaryRecipient;
+    address primaryRecipient;
+    address secondaryRecipient;
 
-  event LogTransfer(address sender, address to, uint amount);
-  event LogError(address sender, address to, uint amount);
-  event LogSetPrimaryRecipient(address recipient);
-  event LogSetSecondaryRecipient(address recipient);
+    uint primaryFunds;
+    uint secondaryFunds;
 
-  modifier addressed {
-      require(owner != address(0), "Owner address must not be 0x0");
-      require(primaryRecipient != address(0), "Primary receiver address must not be 0x0");
-      require(secondaryRecipient != address(0), "Secondary receiver address must not be 0x0");
-      _;
-  }
+    event LogFundsReceived(address from, uint primaryFunds, uint secondaryFunds, uint totalFunds);
+    event LogTransfer(address to, uint funds);
+    event LogError(address to, uint amount);
 
-  /**
-  * @dev Splits a transfer send half to the primaryRecipient and half to the
-  * secondaryRecipient.  If the wei amount is odd, the primaryRecipient gets
-  * the extra 1 wei.  Additionally, only the owner can call this method, the
-  * contract must not be paused and all addresses must be valid.
-  */
-  function splitSend() public payable addressed resumed {
-      require(msg.value > 0, "Insufficient funds");
+    modifier onlyRecipient {
+        require(msg.sender == primaryRecipient || msg.sender == secondaryRecipient,
+                    "Only the owner can do this");
+        _;
+    }
 
-      uint secondaryFunds = msg.value / 2;
-      uint primaryFunds = msg.value - secondaryFunds;
+    constructor(address primary, address secondary) public {
+        require(primary != address(0), "Primary recipient address must not be 0x0");
+        require(secondary != address(0), "Secondary recipient address must not be 0x0");
 
-      send(primaryRecipient, primaryFunds);
-      send(secondaryRecipient, secondaryFunds);
-  }
+        primaryRecipient = primary;
+        secondaryRecipient = secondary;
+    }
 
-  function send(address to, uint amount) private {
+    /**
+    * @dev Only the owner can call this method to add fund to the contract.
+    * The funds will be split 50/50 between recipients and availible for withdraw
+    * via the receive bellow.
+    */
+    function send() public payable onlyOwner {
+        require(msg.value > 0, "Insufficient funds");
+
+        secondaryFunds = msg.value / 2;
+        primaryFunds = msg.value - secondaryFunds;
+
+        emit LogFundsReceived(msg.sender, primaryFunds, secondaryFunds, msg.value);
+    }
+
+    /**
+     * @dev When funds have been added by owner, either recipients may withdraw
+     * their lot using this funtion.
+     *
+     * @param to The address to transfer funds to.
+     */
+    function receive(address to) public onlyRecipient {
+        if (primaryRecipient == to && primaryFunds > 0) {
+            send(to, primaryFunds);
+        } else if (secondaryRecipient == to && secondaryFunds > 0) {
+            send(to, secondaryFunds);
+        }
+    }
+
+    function send(address to, uint amount) private {
       if (to.send(amount)) {
-          emit LogTransfer(owner, to, amount);
+          emit LogTransfer(to, amount);
       } else {
-          emit LogError(owner, to, amount);
+          emit LogError(to, amount);
           revert("Failed to send funds");
       }
-  }
+    }
 
-  function setPrimaryRecipient(address recipient) public onlyOwner resumed {
-      primaryRecipient = recipient;
-      emit LogSetPrimaryRecipient(primaryRecipient);
-  }
+    function getPrimary() public view returns (address) {
+        return primaryRecipient;
+    }
 
-  function setSecondaryRecipient(address recipient) public onlyOwner resumed {
-      secondaryRecipient = recipient;
-      emit LogSetSecondaryRecipient(secondaryRecipient);
-  }
-
+    function getSecondary() public view returns (address) {
+        return secondaryRecipient;
+    }
 }
