@@ -42,16 +42,17 @@ contract Splitter {
      *
      * @param to whom to transfer funds to.
      */
-    function receive(address to) public returns (bool success) {
+    function receive(address to) public {
+        require(msg.sender == to , "Only the owner can do this");
         require(balances[to] > 0, "Insufficient funds");
 
         uint funds = balances[to];
+        balances[to] = 0;
         if (to.send(funds)) {
-            balances[to] = 0;
             emit LogTransferOut(to, funds);
             return true;
         } else {
-            return false;
+            revert("Failed to transfer funds");
         }
     }
 
