@@ -50,10 +50,14 @@ contract Splitter {
         balances[to] = 0;
         if (to.send(funds)) {
             emit LogTransferOut(to, funds);
-            return true;
         } else {
             revert("Failed to transfer funds");
         }
+    }
+
+    /** Fallback not needed */
+    function() public {
+        revert();
     }
 
 }
