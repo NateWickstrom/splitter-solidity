@@ -1,82 +1,58 @@
 pragma solidity ^0.4.24;
 
-import "./Ownable.sol";
-
 /**
  * @title Splitter
  *
- * @dev The Splitter contract has the ability to split a transaction, sending
- * half to a primary and half to a secondary recipient. Only the owner of this
- * contract can preform split send. See the Owned contract for more details.
+ * @dev The Splitter contract has the ability to split transactions, sending
+ * half to a primary and half to a secondary recipient. Incase of an odd value,
+ * the primary recipient gets an extra 1 wei.
  */
-contract Splitter is Ownable {
+contract Splitter {
 
-    address primaryRecipient;
-    address secondaryRecipient;
+    mapping(address => uint) public balances;
 
-    uint primaryFunds;
-    uint secondaryFunds;
+    event LogTransferIn(address from, address to, uint funds);
+    event LogTransferOut(address to, uint funds);
 
-    event LogFundsReceived(address from, uint primaryFunds, uint secondaryFunds, uint totalFunds);
-    event LogTransfer(address to, uint funds);
-    event LogError(address to, uint amount);
-
-    modifier onlyRecipient {
-        require(msg.sender == primaryRecipient || msg.sender == secondaryRecipient,
-                    "Only the owner can do this");
-        _;
-    }
-
-    constructor(address primary, address secondary) public {
+    /**
+    * @dev  The send funds will be split 50/50 between recipients and availible
+    * for withdraw via the receive bellow. Incase of an odd value, the primary
+    * recipient gets an extra 1 wei.
+    *
+    * @param primary recipient to transfer funds to.
+    * @param secondary recipient to transfer funds to.
+    */
+    function send(address primary, address secondary) public payable {
+        require(msg.value > 0, "Insufficient funds");
         require(primary != address(0), "Primary recipient address must not be 0x0");
         require(secondary != address(0), "Secondary recipient address must not be 0x0");
 
-        primaryRecipient = primary;
-        secondaryRecipient = secondary;
+        uint secondaryFunds = msg.value / 2;
+        uint primaryFunds = msg.value - secondaryFunds;
+
+        balances[primary] += primaryFunds;
+        balances[secondary] += secondaryFunds;
+
+        emit LogTransferIn(msg.sender, primary, primaryFunds);
+        emit LogTransferIn(msg.sender, secondary, secondaryFunds);
     }
 
     /**
-    * @dev Only the owner can call this method to add fund to the contract.
-    * The funds will be split 50/50 between recipients and availible for withdraw
-    * via the receive bellow.
-    */
-    function send() public payable onlyOwner {
-        require(msg.value > 0, "Insufficient funds");
-
-        secondaryFunds = msg.value / 2;
-        primaryFunds = msg.value - secondaryFunds;
-
-        emit LogFundsReceived(msg.sender, primaryFunds, secondaryFunds, msg.value);
-    }
-
-    /**
-     * @dev When funds have been added by owner, either recipients may withdraw
-     * their lot using this funtion.
+     * @dev Recipients may withdraw their funds using this funtion.
      *
-     * @param to The address to transfer funds to.
+     * @param to whom to transfer funds to.
      */
-    function receive(address to) public onlyRecipient {
-        if (primaryRecipient == to && primaryFunds > 0) {
-            send(to, primaryFunds);
-        } else if (secondaryRecipient == to && secondaryFunds > 0) {
-            send(to, secondaryFunds);
+    function receive(address to) public returns (bool success) {
+        require(balances[to] > 0, "Insufficient funds");
+
+        uint funds = balances[to];
+        if (to.send(funds)) {
+            balances[to] = 0;
+            emit LogTransferOut(to, funds);
+            return true;
+        } else {
+            return false;
         }
     }
 
-    function send(address to, uint amount) private {
-      if (to.send(amount)) {
-          emit LogTransfer(to, amount);
-      } else {
-          emit LogError(to, amount);
-          revert("Failed to send funds");
-      }
-    }
-
-    function getPrimary() public view returns (address) {
-        return primaryRecipient;
-    }
-
-    function getSecondary() public view returns (address) {
-        return secondaryRecipient;
-    }
 }
