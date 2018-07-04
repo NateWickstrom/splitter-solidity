@@ -11,18 +11,18 @@ contract Splitter {
 
     mapping(address => uint) public balances;
 
-    event LogTransferIn(address from, address to, uint funds);
-    event LogTransferOut(address to, uint funds);
+    event LogDeposit(address indexed from, address indexed to, uint funds);
+    event LogWithdraw(address indexed to, uint funds);
 
     /**
-    * @dev  The send funds will be split 50/50 between recipients and availible
+    * @dev  The sent funds will be split 50/50 between recipients and availible
     * for withdraw via the receive bellow. Incase of an odd value, the primary
     * recipient gets an extra 1 wei.
     *
     * @param primary recipient to transfer funds to.
     * @param secondary recipient to transfer funds to.
     */
-    function send(address primary, address secondary) public payable {
+    function deposit(address primary, address secondary) public payable {
         require(msg.value > 0, "Insufficient funds");
         require(primary != address(0), "Primary recipient address must not be 0x0");
         require(secondary != address(0), "Secondary recipient address must not be 0x0");
@@ -33,26 +33,23 @@ contract Splitter {
         balances[primary] += primaryFunds;
         balances[secondary] += secondaryFunds;
 
-        emit LogTransferIn(msg.sender, primary, primaryFunds);
-        emit LogTransferIn(msg.sender, secondary, secondaryFunds);
+        emit LogDeposit(msg.sender, primary, primaryFunds);
+        emit LogDeposit(msg.sender, secondary, secondaryFunds);
     }
 
     /**
      * @dev Recipients may withdraw their funds using this funtion.
-     *
-     * @param to whom to transfer funds to.
      */
-    function receive(address to) public {
-        require(msg.sender == to , "Only the owner can do this");
-        require(balances[to] > 0, "Insufficient funds");
+    function withdraw() public {
+        address payee = msg.sender;
+        uint balance = balances[payee];
 
-        uint funds = balances[to];
-        balances[to] = 0;
-        if (to.send(funds)) {
-            emit LogTransferOut(to, funds);
-        } else {
-            revert("Failed to transfer funds");
-        }
+        require(balance > 0, "Insufficient funds");
+
+        balances[payee] = 0;
+        emit LogWithdraw(payee, balance);
+
+        require(payee.send(balance), "Failed to transfer funds");
     }
 
     /** Fallback not needed */
