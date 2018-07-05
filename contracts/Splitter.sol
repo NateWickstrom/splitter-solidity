@@ -57,8 +57,8 @@ contract Splitter {
     }
 
     function getBalance(address addr) public view returns(uint) {
-  		return balances[addr];
-  	}
+        return balances[addr];
+    }
 
     /** Fallback not needed */
     function() public {
