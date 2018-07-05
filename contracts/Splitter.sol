@@ -1,5 +1,7 @@
 pragma solidity ^0.4.24;
 
+import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
+
 /**
  * @title Splitter
  *
@@ -8,6 +10,8 @@ pragma solidity ^0.4.24;
  * the primary recipient gets an extra 1 wei.
  */
 contract Splitter {
+
+    using SafeMath for uint256;
 
     mapping(address => uint) public balances;
 
@@ -27,11 +31,11 @@ contract Splitter {
         require(primary != address(0), "Primary recipient address must not be 0x0");
         require(secondary != address(0), "Secondary recipient address must not be 0x0");
 
-        uint secondaryFunds = msg.value / 2;
-        uint primaryFunds = msg.value - secondaryFunds;
+        uint secondaryFunds = msg.value.div(2);
+        uint primaryFunds = msg.value.sub(secondaryFunds);
 
-        balances[primary] += primaryFunds;
-        balances[secondary] += secondaryFunds;
+        balances[primary] = balances[primary].add(primaryFunds);
+        balances[secondary] = balances[secondary].add(secondaryFunds);
 
         emit LogDeposit(msg.sender, primary, primaryFunds);
         emit LogDeposit(msg.sender, secondary, secondaryFunds);
