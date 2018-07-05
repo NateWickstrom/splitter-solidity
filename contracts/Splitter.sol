@@ -52,6 +52,10 @@ contract Splitter {
         require(payee.send(balance), "Failed to transfer funds");
     }
 
+    function getBalance(address addr) public view returns(uint) {
+  		return balances[addr];
+  	}
+
     /** Fallback not needed */
     function() public {
         revert();
