@@ -1,6 +1,7 @@
 pragma solidity ^0.4.24;
 
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
+import 'openzeppelin-solidity/contracts/lifecycle/Pausable.sol';
 
 /**
  * @title Splitter
@@ -9,13 +10,13 @@ import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
  * half to a primary and half to a secondary recipient. Incase of an odd value,
  * the primary recipient gets an extra 1 wei.
  */
-contract Splitter {
+contract Splitter is Pausable {
 
     using SafeMath for uint256;
 
     mapping(address => uint) public balances;
 
-    event LogDeposit(address indexed from, address indexed to, uint funds);
+    event LogDeposit(address indexed from, address indexed primary, address indexed secondary, uint funds);
     event LogWithdraw(address indexed to, uint funds);
 
     /**
@@ -26,25 +27,27 @@ contract Splitter {
     * @param primary recipient to transfer funds to.
     * @param secondary recipient to transfer funds to.
     */
-    function deposit(address primary, address secondary) public payable {
+    function deposit(address primary, address secondary) whenNotPaused public payable {
         require(msg.value > 0, "Insufficient funds");
         require(primary != address(0), "Primary recipient address must not be 0x0");
         require(secondary != address(0), "Secondary recipient address must not be 0x0");
 
-        uint secondaryFunds = msg.value.div(2);
-        uint primaryFunds = msg.value.sub(secondaryFunds);
+        uint half = msg.value.div(2);
+        balances[secondary] = balances[secondary].add(half);
 
-        balances[primary] = balances[primary].add(primaryFunds);
-        balances[secondary] = balances[secondary].add(secondaryFunds);
+        if (isOdd(msg.value)) {
+            balances[primary] = balances[primary].add(half + 1);
+        } else {
+            balances[primary] = balances[primary].add(half);
+        }
 
-        emit LogDeposit(msg.sender, primary, primaryFunds);
-        emit LogDeposit(msg.sender, secondary, secondaryFunds);
+        emit LogDeposit(msg.sender, primary, secondary, msg.value);
     }
 
     /**
      * @dev Recipients may withdraw their funds using this funtion.
      */
-    function withdraw() public {
+    function withdraw() whenNotPaused public {
         address payee = msg.sender;
         uint balance = balances[payee];
 
@@ -58,6 +61,10 @@ contract Splitter {
 
     function getBalance(address addr) public view returns(uint) {
         return balances[addr];
+    }
+
+    function isOdd(uint number) private pure returns(bool) {
+        return (number % 2 == 1);
     }
 
     /** Fallback not needed */
