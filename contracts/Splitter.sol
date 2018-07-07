@@ -31,15 +31,11 @@ contract Splitter is Pausable {
         require(msg.value > 0, "Insufficient funds");
         require(primary != address(0), "Primary recipient address must not be 0x0");
         require(secondary != address(0), "Secondary recipient address must not be 0x0");
+        require(isEven(msg.value), "Cannot split odd values fairly");
 
         uint half = msg.value.div(2);
         balances[secondary] = balances[secondary].add(half);
-
-        if (isOdd(msg.value)) {
-            balances[primary] = balances[primary].add(half + 1);
-        } else {
-            balances[primary] = balances[primary].add(half);
-        }
+        balances[primary] = balances[primary].add(half);
 
         emit LogDeposit(msg.sender, primary, secondary, msg.value);
     }
@@ -63,8 +59,8 @@ contract Splitter is Pausable {
         return balances[addr];
     }
 
-    function isOdd(uint number) private pure returns(bool) {
-        return (number % 2 == 1);
+    function isEven(uint number) private pure returns(bool) {
+        return (number % 2 == 0);
     }
 
     /** Fallback not needed */
